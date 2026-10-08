@@ -1,0 +1,1911 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>極軌氣象與地球觀測衞星實時監測儀錶板 | 多星與單星顯示切換版</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" 
+        onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';" />
+
+  <style>
+    :root {
+      --bg-dark: #070b14;
+      --bg-card: rgba(14, 22, 41, 0.9);
+      --bg-card-border: rgba(0, 229, 255, 0.25);
+      --cyan: #00f0ff;
+      --cyan-glow: rgba(0, 240, 255, 0.4);
+      --purple: #a855f7;
+      --purple-glow: rgba(168, 85, 247, 0.4);
+      --orange: #ff9900;
+      --orange-glow: rgba(255, 153, 0, 0.4);
+      --pink: #ff3399;
+      --pink-glow: rgba(255, 51, 153, 0.4);
+      --gold: #facc15;
+      --gold-glow: rgba(250, 204, 21, 0.4);
+      --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.4);
+      --sky: #38bdf8;
+      --sky-glow: rgba(56, 189, 248, 0.4);
+      --green: #00ff88;
+      --green-glow: rgba(0, 255, 136, 0.4);
+      --yellow: #ffd000;
+      --yellow-glow: rgba(255, 208, 0, 0.5);
+      --red: #ff3366;
+      --text-main: #e2e8f0;
+      --text-muted: #8492a6;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-display: 'Chakra Petch', sans-serif;
+      --font-body: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 40%, rgba(0, 102, 255, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 90% 20%, rgba(0, 240, 255, 0.06) 0%, transparent 40%);
+    }
+
+    header {
+      background: rgba(10, 16, 30, 0.95);
+      border-bottom: 1px solid var(--bg-card-border);
+      padding: 10px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+      backdrop-filter: blur(10px);
+      position: sticky; top: 0; z-index: 1000;
+      flex-wrap: wrap; gap: 10px;
+    }
+
+    .header-brand { display: flex; align-items: center; gap: 14px; }
+    .satellite-icon-badge {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(0, 102, 255, 0.4));
+      border: 1px solid var(--cyan);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; color: var(--cyan);
+      box-shadow: 0 0 15px var(--cyan-glow);
+      transition: all 0.3s;
+    }
+
+    .brand-title h1 {
+      font-family: var(--font-display);
+      font-size: 1.3rem; font-weight: 700;
+      color: #fff; display: flex; align-items: center; gap: 8px;
+    }
+    .brand-title .badge {
+      font-size: 0.7rem; background: rgba(0, 255, 136, 0.15);
+      color: var(--green); border: 1px solid var(--green);
+      padding: 2px 6px; border-radius: 4px;
+      font-family: var(--font-mono); font-weight: 600;
+    }
+    .brand-subtitle { font-size: 0.78rem; color: var(--text-muted); font-family: var(--font-mono); }
+
+    .sat-selector-group {
+      display: flex; background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.15);
+      padding: 3px; border-radius: 8px; gap: 4px; flex-wrap: wrap;
+    }
+    .sat-tab-btn {
+      background: transparent; border: 1px solid transparent;
+      color: var(--text-muted); padding: 4px 10px;
+      font-family: var(--font-display); font-weight: 700; font-size: 0.78rem;
+      border-radius: 6px; cursor: pointer; transition: all 0.2s;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .sat-tab-btn.active-noaa21 { background: rgba(0, 240, 255, 0.2); color: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 8px var(--cyan-glow); }
+    .sat-tab-btn.active-noaa20 { background: rgba(168, 85, 247, 0.2); color: var(--purple); border-color: var(--purple); box-shadow: 0 0 8px var(--purple-glow); }
+    .sat-tab-btn.active-snpp   { background: rgba(255, 153, 0, 0.2); color: var(--orange); border-color: var(--orange); box-shadow: 0 0 8px var(--orange-glow); }
+    .sat-tab-btn.active-fy3d   { background: rgba(255, 51, 153, 0.2); color: var(--pink); border-color: var(--pink); box-shadow: 0 0 8px var(--pink-glow); }
+    .sat-tab-btn.active-terra  { background: rgba(250, 204, 21, 0.2); color: var(--gold); border-color: var(--gold); box-shadow: 0 0 8px var(--gold-glow); }
+    .sat-tab-btn.active-metopb { background: rgba(16, 185, 129, 0.2); color: var(--emerald); border-color: var(--emerald); box-shadow: 0 0 8px var(--emerald-glow); }
+    .sat-tab-btn.active-metopc { background: rgba(56, 189, 248, 0.2); color: var(--sky); border-color: var(--sky); box-shadow: 0 0 8px var(--sky-glow); }
+
+    .header-status { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .status-clock { text-align: right; font-family: var(--font-mono); }
+    .clock-utc { font-size: 1.05rem; font-weight: 700; color: var(--cyan); }
+    .clock-local { font-size: 0.75rem; color: var(--text-muted); }
+
+    .header-btn {
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      padding: 6px 12px; border-radius: 6px;
+      font-size: 0.8rem; cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--font-mono); transition: all 0.2s;
+    }
+    .header-btn:hover { background: rgba(0, 240, 255, 0.25); box-shadow: 0 0 10px var(--cyan-glow); }
+
+    .header-btn.tle-warning {
+      background: rgba(255, 208, 0, 0.18) !important;
+      border: 1px solid var(--yellow) !important;
+      color: var(--yellow) !important;
+      box-shadow: 0 0 12px var(--yellow-glow) !important;
+    }
+
+    main {
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      gap: 20px;
+      max-width: 1920px;
+      margin: 0 auto;
+    }
+    @media (max-width: 1200px) { main { grid-template-columns: 1fr; } }
+
+    .map-section { display: flex; flex-direction: column; gap: 16px; }
+    .sidebar-section { display: flex; flex-direction: column; gap: 16px; }
+
+    /* Telemetry Ribbon */
+    .telemetry-ribbon {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .ribbon-item {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-card-border);
+      border-radius: 8px; padding: 12px 14px;
+      position: relative; overflow: hidden;
+      backdrop-filter: blur(8px);
+    }
+    .ribbon-item::before {
+      content: ''; position: absolute;
+      top: 0; left: 0; width: 3px; height: 100%;
+      background: var(--theme-color, var(--cyan));
+    }
+    .ribbon-label {
+      font-size: 0.72rem; color: var(--text-muted);
+      text-transform: uppercase; font-family: var(--font-mono);
+      margin-bottom: 4px; display: flex; align-items: center; gap: 6px;
+    }
+    .ribbon-value { font-family: var(--font-mono); font-size: 1.15rem; font-weight: 700; color: #fff; }
+    .ribbon-unit { font-size: 0.75rem; color: var(--theme-color, var(--cyan)); margin-left: 4px; font-weight: 400; }
+
+    /* Map Card */
+    .map-container-card {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-card-border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      position: relative;
+    }
+
+    .map-header {
+      padding: 12px 18px;
+      background: rgba(10, 16, 30, 0.9);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 10px;
+    }
+    .map-header-title {
+      font-family: var(--font-display);
+      font-size: 0.95rem; font-weight: 600; color: #fff;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .map-header-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    .map-select {
+      background: rgba(10, 20, 40, 0.9);
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      padding: 4px 8px; border-radius: 4px;
+      font-size: 0.75rem; font-family: var(--font-mono);
+      cursor: pointer; outline: none;
+    }
+
+    .sim-ctrl-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text-main);
+      padding: 4px 10px; border-radius: 4px;
+      font-size: 0.75rem; font-family: var(--font-mono);
+      cursor: pointer; transition: all 0.2s;
+    }
+    .sim-ctrl-btn:hover, .sim-ctrl-btn.active {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--cyan); color: var(--cyan);
+    }
+    .sim-ctrl-btn.active-lock {
+      background: rgba(0, 255, 136, 0.25) !important;
+      border-color: var(--green) !important;
+      color: var(--green) !important;
+    }
+
+    /* 顯示過濾切換按鈕亮色效果 */
+    .filter-btn-active {
+      background: rgba(250, 204, 21, 0.2) !important;
+      border-color: var(--gold) !important;
+      color: var(--gold) !important;
+    }
+
+    .map-view-wrapper {
+      position: relative;
+      width: 100%;
+      height: 540px;
+      background: #060911;
+    }
+
+    #map { width: 100%; height: 100%; background: #060911; display: block; }
+    #canvas-map { width: 100%; height: 100%; display: none; background: #050813; }
+
+    .map-legend {
+      padding: 10px 16px;
+      background: rgba(8, 12, 24, 0.95);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      display: flex; flex-wrap: wrap; gap: 14px;
+      font-size: 0.75rem; color: var(--text-muted);
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    /* Panels */
+    .panel-card {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-card-border);
+      border-radius: 12px; padding: 16px;
+      backdrop-filter: blur(8px);
+    }
+    .panel-title {
+      font-family: var(--font-display);
+      font-size: 0.95rem; font-weight: 700; color: #fff;
+      margin-bottom: 12px; display: flex;
+      justify-content: space-between; align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding-bottom: 8px;
+    }
+    .panel-title i { color: var(--theme-color, var(--cyan)); margin-right: 6px; }
+
+    .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .data-cell {
+      background: rgba(255,255,255,0.03);
+      padding: 8px 10px; border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .data-cell-label { font-size: 0.7rem; color: var(--text-muted); font-family: var(--font-mono); }
+    .data-cell-value { font-size: 0.88rem; font-family: var(--font-mono); color: #fff; font-weight: 600; }
+
+    .instrument-item {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 8px; padding: 10px 12px;
+      margin-bottom: 8px; display: flex;
+      justify-content: space-between; align-items: center;
+    }
+    .inst-name { font-weight: 700; font-size: 0.88rem; color: #fff; }
+    .inst-desc { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+    .inst-status-badge {
+      font-size: 0.68rem; font-family: var(--font-mono); font-weight: 600;
+      padding: 3px 8px; border-radius: 4px;
+      background: rgba(0, 255, 136, 0.15); color: var(--green);
+      border: 1px solid var(--green);
+    }
+
+    /* Pass Tracker Box */
+    .gs-tracker-box {
+      background: rgba(0, 240, 255, 0.03);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      border-radius: 8px; padding: 12px;
+    }
+    .gs-header {
+      display: flex; justify-content: space-between;
+      align-items: flex-start; margin-bottom: 10px;
+    }
+    .gs-target-name { font-weight: 700; color: var(--cyan); font-size: 0.9rem; }
+    .gs-btns { display: flex; gap: 6px; }
+
+    .pass-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+    .metric-small { font-family: var(--font-mono); font-size: 0.75rem; }
+    .metric-small span { color: var(--text-muted); display: block; font-size: 0.68rem; }
+    .visibility-banner {
+      margin-top: 10px; padding: 7px; text-align: center;
+      border-radius: 4px; font-size: 0.75rem;
+      font-weight: 600; font-family: var(--font-mono);
+    }
+    .vis-out-of-range {
+      background: rgba(255, 255, 255, 0.05); color: var(--text-muted);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .vis-in-range {
+      background: rgba(0, 255, 136, 0.2); color: var(--green);
+      border: 1px solid var(--green);
+      box-shadow: 0 0 10px var(--green-glow);
+    }
+
+    /* Satellite Markers */
+    .custom-sat-icon { transition: none !important; }
+    .satellite-marker-container {
+      position: relative; width: 44px; height: 44px;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: auto;
+    }
+    .sat-icon-core {
+      width: 24px; height: 24px; background: #070b14;
+      border: 2px solid currentColor; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; z-index: 2;
+    }
+    .sat-name-tag {
+      position: absolute; left: 32px; top: 50%;
+      transform: translateY(-50%);
+      background: rgba(7, 11, 20, 0.92);
+      border: 1px solid currentColor;
+      font-family: var(--font-display);
+      font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.5px; padding: 2px 5px;
+      border-radius: 4px; white-space: nowrap;
+      pointer-events: none; z-index: 3;
+    }
+
+    .sat-theme-cyan    { color: var(--cyan); }
+    .sat-theme-purple  { color: var(--purple); }
+    .sat-theme-orange  { color: var(--orange); }
+    .sat-theme-pink    { color: var(--pink); }
+    .sat-theme-gold    { color: var(--gold); }
+    .sat-theme-emerald { color: var(--emerald); }
+    .sat-theme-sky     { color: var(--sky); }
+
+    .sat-theme-cyan .sat-icon-core    { box-shadow: 0 0 8px var(--cyan); }
+    .sat-theme-purple .sat-icon-core  { box-shadow: 0 0 8px var(--purple); }
+    .sat-theme-orange .sat-icon-core  { box-shadow: 0 0 8px var(--orange); }
+    .sat-theme-pink .sat-icon-core    { box-shadow: 0 0 8px var(--pink); }
+    .sat-theme-gold .sat-icon-core    { box-shadow: 0 0 8px var(--gold); }
+    .sat-theme-emerald .sat-icon-core { box-shadow: 0 0 8px var(--emerald); }
+    .sat-theme-sky .sat-icon-core     { box-shadow: 0 0 8px var(--sky); }
+
+    /* Modals */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
+      z-index: 2000; align-items: center; justify-content: center;
+    }
+    .modal-content {
+      background: #0c1427; border: 1px solid var(--cyan);
+      border-radius: 12px; width: 90%; max-width: 520px;
+      padding: 22px; box-shadow: 0 0 30px rgba(0, 240, 255, 0.25);
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 8px;
+    }
+    .modal-close-btn {
+      background: none; border: none; color: var(--text-muted);
+      font-size: 1.4rem; cursor: pointer;
+    }
+    .modal-close-btn:hover { color: #fff; }
+
+    .form-group { margin-bottom: 12px; }
+    .form-label {
+      display: block; font-size: 0.75rem; color: var(--text-muted);
+      font-family: var(--font-mono); margin-bottom: 4px;
+    }
+    .form-input {
+      width: 100%; background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      border-radius: 6px; color: #fff; font-family: var(--font-mono);
+      font-size: 0.88rem; padding: 8px 10px; outline: none;
+    }
+    .form-input:focus { border-color: var(--cyan); box-shadow: 0 0 8px var(--cyan-glow); }
+
+    .preset-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .chip {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text-main); font-size: 0.72rem; padding: 3px 8px;
+      border-radius: 4px; cursor: pointer; transition: all 0.2s;
+    }
+    .chip:hover { border-color: var(--cyan); color: var(--cyan); background: rgba(0,240,255,0.1); }
+
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+    .btn-primary {
+      background: var(--cyan); color: #000; border: none;
+      padding: 8px 16px; border-radius: 6px; font-weight: 700;
+      cursor: pointer; font-family: var(--font-display);
+    }
+    .btn-primary:hover { box-shadow: 0 0 12px var(--cyan-glow); }
+    .btn-secondary {
+      background: rgba(255,255,255,0.1); color: #fff; border: none;
+      padding: 8px 16px; border-radius: 6px; cursor: pointer;
+      font-family: var(--font-display);
+    }
+
+    .tle-textarea {
+      width: 100%; height: 110px; background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
+      color: var(--green); font-family: var(--font-mono); font-size: 0.8rem;
+      padding: 10px; resize: vertical;
+    }
+
+    .tle-status-banner {
+      padding: 8px 12px; border-radius: 6px;
+      font-size: 0.78rem; font-family: var(--font-mono);
+      margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+    }
+    .tle-status-ok { background: rgba(0, 255, 136, 0.1); border: 1px solid var(--green); color: var(--green); }
+    .tle-status-warn { background: rgba(255, 208, 0, 0.12); border: 1px solid var(--yellow); color: var(--yellow); }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Bar -->
+  <header>
+    <div class="header-brand">
+      <div class="satellite-icon-badge" id="header-badge-icon">
+        <i class="fa-solid fa-satellite"></i>
+      </div>
+      <div class="brand-title">
+        <h1 id="header-main-title">
+          NOAA-21 (JPSS-2)
+          <span class="badge" id="header-status-badge">OPERATIONAL / 主軌道作業中</span>
+        </h1>
+        <div class="brand-subtitle" id="header-sub-title">
+          NORAD ID: 54234 | 國際代號: 2022-150A | 太陽同步極軌氣象衞星 (13:30 LTAN)
+        </div>
+      </div>
+    </div>
+
+    <!-- 七星切換選擇器 -->
+    <div class="sat-selector-group">
+      <button class="sat-tab-btn active-noaa21" id="tab-noaa21" onclick="switchActiveSatellite('noaa21')"><i class="fa-solid fa-satellite" style="color:var(--cyan);"></i> NOAA-21</button>
+      <button class="sat-tab-btn" id="tab-noaa20" onclick="switchActiveSatellite('noaa20')"><i class="fa-solid fa-satellite" style="color:var(--purple);"></i> NOAA-20</button>
+      <button class="sat-tab-btn" id="tab-snpp" onclick="switchActiveSatellite('snpp')"><i class="fa-solid fa-satellite" style="color:var(--orange);"></i> SNPP</button>
+      <button class="sat-tab-btn" id="tab-fy3d" onclick="switchActiveSatellite('fy3d')"><i class="fa-solid fa-satellite" style="color:var(--pink);"></i> FY-3D</button>
+      <button class="sat-tab-btn" id="tab-terra" onclick="switchActiveSatellite('terra')"><i class="fa-solid fa-globe" style="color:var(--gold);"></i> TERRA</button>
+      <button class="sat-tab-btn" id="tab-metopb" onclick="switchActiveSatellite('metopb')"><i class="fa-solid fa-wind" style="color:var(--emerald);"></i> MetOp-B</button>
+      <button class="sat-tab-btn" id="tab-metopc" onclick="switchActiveSatellite('metopc')"><i class="fa-solid fa-cloud-sun" style="color:var(--sky);"></i> MetOp-C</button>
+    </div>
+
+    <div class="header-status">
+      <div class="status-clock">
+        <div class="clock-utc" id="clock-utc">--:--:-- UTC</div>
+        <div class="clock-local" id="clock-local">本地時間: --:--:--</div>
+      </div>
+      <button class="header-btn" onclick="openCoordModal()">
+        <i class="fa-solid fa-location-crosshairs"></i> 觀測點座標
+      </button>
+      <button class="header-btn" id="btn-tle-menu" onclick="openTleModal()">
+        <i class="fa-solid fa-code" id="btn-tle-icon"></i> <span id="btn-tle-text">TLE 軌道根數</span>
+      </button>
+      <button class="header-btn" onclick="clearSavedSettings()" title="重設所有已儲存的設定">
+        <i class="fa-solid fa-rotate-right"></i> 重設
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main>
+    <div class="map-section">
+      <!-- Quick Telemetry Ribbon -->
+      <div class="telemetry-ribbon" id="telemetry-ribbon">
+        <div class="ribbon-item">
+          <div class="ribbon-label"><i class="fa-solid fa-location-crosshairs"></i> 緯度 Latitude</div>
+          <div class="ribbon-value" id="val-lat">--.-----°<span class="ribbon-unit" id="unit-lat">N</span></div>
+        </div>
+        <div class="ribbon-item">
+          <div class="ribbon-label"><i class="fa-solid fa-location-crosshairs"></i> 經度 Longitude</div>
+          <div class="ribbon-value" id="val-lon">--.-----°<span class="ribbon-unit" id="unit-lon">E</span></div>
+        </div>
+        <div class="ribbon-item">
+          <div class="ribbon-label"><i class="fa-solid fa-arrows-up-to-line"></i> 軌道高度 Altitude</div>
+          <div class="ribbon-value" id="val-alt">---.-<span class="ribbon-unit">km</span></div>
+        </div>
+        <div class="ribbon-item">
+          <div class="ribbon-label"><i class="fa-solid fa-gauge-high"></i> 瞬時速度 Velocity</div>
+          <div class="ribbon-value" id="val-vel">-.---<span class="ribbon-unit">km/s</span></div>
+        </div>
+        <div class="ribbon-item">
+          <div class="ribbon-label"><i class="fa-solid fa-compass"></i> 地面航向 Heading</div>
+          <div class="ribbon-value" id="val-head">---<span class="ribbon-unit">°</span></div>
+        </div>
+        <div class="ribbon-item">
+          <div class="ribbon-label"><i class="fa-solid fa-satellite-dish"></i> 本地仰角 Elevation</div>
+          <div class="ribbon-value" id="val-el">--.-<span class="ribbon-unit">°</span></div>
+        </div>
+      </div>
+
+      <!-- 2D Interactive Map Card -->
+      <div class="map-container-card">
+        <div class="map-header">
+          <div class="map-header-title">
+            <i class="fa-solid fa-earth-americas" style="color: var(--cyan);"></i>
+            (平滑連續軌道 & 1 Hz 低負載)
+          </div>
+          <div class="map-header-controls">
+            <!-- 地圖顯示範圍過濾選項 -->
+            <button class="sim-ctrl-btn" id="btn-toggle-viewmode" onclick="toggleSatDisplayMode()" title="切換顯示全部衞星或僅顯示當前選取的衞星">
+              <i class="fa-solid fa-layer-group"></i> <span id="text-viewmode">全部衞星</span>
+            </button>
+
+            <label style="font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono);">底圖:</label>
+            <select class="map-select" id="map-layer-select" onchange="changeMapLayer(this.value)">
+              <option value="esri" selected>🛰 Esri 衞星空照圖 (高清晰)</option>
+              <option value="osm">🌐 OpenStreetMap (標準地圖)</option>
+              <option value="carto">🌑 CartoDB Dark (夜間深色)</option>
+              <option value="canvas">🖥️ 本地向量雷達圖 (100% 離線)</option>
+            </select>
+
+            <button class="sim-ctrl-btn" id="btn-follow" onclick="toggleFollowMode()" title="地圖中心自動跟隨當前選取的衞星">
+              <i class="fa-solid fa-crosshairs"></i> 鎖定跟隨
+            </button>
+            <button class="sim-ctrl-btn" onclick="zoomToSat()" title="放大至區域視野，觀察地面飛越細節">
+              <i class="fa-solid fa-magnifying-glass-plus"></i> 近距聚焦
+            </button>
+
+            <div style="font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono); margin-left:4px; display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green);"></span>
+              倍速:
+            </div>
+            <button class="sim-ctrl-btn active" id="btn-speed-1" onclick="setSpeed(1, this)">1x</button>
+            <button class="sim-ctrl-btn" id="btn-speed-5" onclick="setSpeed(5, this)">5x</button>
+            <button class="sim-ctrl-btn" id="btn-speed-15" onclick="setSpeed(15, this)">15x</button>
+            <button class="sim-ctrl-btn" id="btn-speed-60" onclick="setSpeed(60, this)">60x</button>
+            <button class="sim-ctrl-btn" onclick="togglePause(this)" id="btn-pause"><i class="fa-solid fa-pause"></i></button>
+            <button class="sim-ctrl-btn" onclick="resetToNow()"><i class="fa-solid fa-clock-rotate-left"></i> 重設</button>
+          </div>
+        </div>
+
+        <div class="map-view-wrapper">
+          <div id="map"></div>
+          <canvas id="canvas-map"></canvas>
+        </div>
+
+        <!-- 七星圖例 -->
+        <div class="map-legend" id="map-legend-bar">
+          <div class="legend-item" id="lg-noaa21"><div class="legend-dot" style="background: var(--cyan);"></div><span><strong>NOAA-21</strong></span></div>
+          <div class="legend-item" id="lg-noaa20"><div class="legend-dot" style="background: var(--purple);"></div><span><strong>NOAA-20</strong></span></div>
+          <div class="legend-item" id="lg-snpp"><div class="legend-dot" style="background: var(--orange);"></div><span><strong>SNPP</strong></span></div>
+          <div class="legend-item" id="lg-fy3d"><div class="legend-dot" style="background: var(--pink);"></div><span><strong>FY-3D</strong></span></div>
+          <div class="legend-item" id="lg-terra"><div class="legend-dot" style="background: var(--gold);"></div><span><strong>TERRA</strong></span></div>
+          <div class="legend-item" id="lg-metopb"><div class="legend-dot" style="background: var(--emerald);"></div><span><strong>MetOp-B</strong></span></div>
+          <div class="legend-item" id="lg-metopc"><div class="legend-dot" style="background: var(--sky);"></div><span><strong>MetOp-C</strong></span></div>
+          <div class="legend-item"><div class="legend-dot" style="background: var(--green);"></div><span id="legend-obs-name">當前觀測點 (香港)</span></div>
+        </div>
+      </div>
+
+      <!-- Orbital Characteristics Grid -->
+      <div class="panel-card">
+        <div class="panel-title">
+          <span><i class="fa-solid fa-atom"></i> 軌道動力學參數 (<span id="orbital-card-sat-name">NOAA-21</span>)</span>
+          <span style="font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono);">SGP4 攝動數值解</span>
+        </div>
+        <div class="data-grid" id="orbital-params-grid"></div>
+      </div>
+    </div>
+
+    <!-- Right Sidebar Section -->
+    <div class="sidebar-section">
+      <!-- Ground Station Pass Prediction -->
+      <div class="panel-card">
+        <div class="panel-title">
+          <span><i class="fa-solid fa-tower-broadcast"></i> 本地過境預報與仰角計算</span>
+          <span style="font-size:0.75rem; color:var(--cyan); font-family:var(--font-mono);"><i class="fa-solid fa-satellite-dish"></i> 實時信標</span>
+        </div>
+
+        <div class="gs-tracker-box">
+          <div class="gs-header">
+            <div>
+              <span class="gs-target-name" id="gs-name">香港觀測站 (Hong Kong)</span>
+              <div style="font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono); margin-top:2px;" id="gs-coords">
+                22.3193° N, 114.1694° E (海拔 50m)
+              </div>
+            </div>
+            <div class="gs-btns">
+              <button class="sim-ctrl-btn" onclick="openCoordModal()" title="手動鍵入經緯度座標" style="color:var(--cyan); border-color:var(--cyan);">
+                <i class="fa-solid fa-pen-to-square"></i> 設定
+              </button>
+              <button class="sim-ctrl-btn" onclick="useGeolocation()" title="使用瀏覽器自動定位">
+                <i class="fa-solid fa-location-dot"></i> GPS
+              </button>
+            </div>
+          </div>
+
+          <div class="pass-metrics">
+            <div class="metric-small">
+              <span>地平仰角 (Elevation)</span>
+              <strong id="pass-el" style="font-size:1.15rem; color:#fff;">--.-°</strong>
+            </div>
+            <div class="metric-small">
+              <span>方位角 (Azimuth)</span>
+              <strong id="pass-az" style="font-size:1.15rem; color:#fff;">---.-°</strong>
+            </div>
+            <div class="metric-small">
+              <span>直距斜距 (Slant Range)</span>
+              <strong id="pass-range" style="font-size:1.15rem; color:#fff;">---- km</strong>
+            </div>
+            <div class="metric-small">
+              <span>多普勒頻移 (Doppler Est.)</span>
+              <strong id="pass-doppler" style="font-size:1.15rem; color:var(--cyan);">±0.00 kHz</strong>
+            </div>
+          </div>
+
+          <div id="vis-banner" class="visibility-banner vis-out-of-range">
+            <i class="fa-solid fa-circle-xmark"></i> 目前在視界外 (Horizon Loss of Signal)
+          </div>
+        </div>
+      </div>
+
+      <!-- Scientific Instruments Status -->
+      <div class="panel-card">
+        <div class="panel-title">
+          <span><i class="fa-solid fa-microchip"></i> 科學載荷配置 (<span id="payload-card-sat-name">NOAA-21</span>)</span>
+          <span style="font-size:0.7rem; color:var(--green); font-family:var(--font-mono);" id="payload-status-summary">正常作業</span>
+        </div>
+        <div id="payload-items-container"></div>
+      </div>
+
+      <!-- Satellite Information Card -->
+      <div class="panel-card">
+        <div class="panel-title">
+          <span><i class="fa-solid fa-circle-info"></i> 衞星平台技術資訊</span>
+          <span style="font-size:0.72rem; color:var(--green); font-family:var(--font-mono);" id="sat-info-health"><i class="fa-solid fa-circle-dot"></i> 健康在軌</span>
+        </div>
+        <div style="font-size: 0.8rem; line-height: 1.6; color: var(--text-main); margin-bottom: 10px;" id="sat-desc-text"></div>
+        <div class="data-grid" style="grid-template-columns: 1fr;" id="sat-info-grid"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal: Manual Coordinate Input -->
+  <div class="modal-overlay" id="coord-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="color:#fff; font-family:var(--font-display);"><i class="fa-solid fa-location-crosshairs" style="color:var(--cyan);"></i> 設定觀測站地理座標</h3>
+        <button class="modal-close-btn" onclick="closeCoordModal()">&times;</button>
+      </div>
+
+      <div style="font-size:0.72rem; color:var(--cyan); margin-bottom:6px; font-family:var(--font-mono);">常用預設城市 (點擊快速填入):</div>
+      <div class="preset-chips">
+        <button class="chip" onclick="applyPreset('香港天文台 (Hong Kong)', 22.3193, 114.1694, 50)">香港 (22.3°N, 114.2°E)</button>
+        <button class="chip" onclick="applyPreset('台北觀測點 (Taipei)', 25.0330, 121.5654, 20)">台北 (25.0°N, 121.6°E)</button>
+        <button class="chip" onclick="applyPreset('北京國家氣象中心 (Beijing)', 39.9042, 116.4074, 45)">北京 (39.9°N, 116.4°E)</button>
+        <button class="chip" onclick="applyPreset('上海氣象站 (Shanghai)', 31.2304, 121.4737, 10)">上海 (31.2°N, 121.5°E)</button>
+        <button class="chip" onclick="applyPreset('東京觀測點 (Tokyo)', 35.6762, 139.6503, 40)">東京 (35.7°N, 139.7°E)</button>
+        <button class="chip" onclick="applyPreset('倫敦 (London)', 51.5074, -0.1278, 35)">倫敦 (51.5°N, 0.1°W)</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label"><i class="fa-solid fa-tag"></i> 觀測站名稱</label>
+        <input type="text" id="input-station-name" class="form-input" value="香港觀測站 (Hong Kong)">
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div class="form-group">
+          <label class="form-label"><i class="fa-solid fa-arrows-up-down"></i> 緯度 Latitude (°)</label>
+          <input type="number" step="0.0001" min="-90" max="90" id="input-lat" class="form-input" value="22.3193">
+        </div>
+        <div class="form-group">
+          <label class="form-label"><i class="fa-solid fa-arrows-left-right"></i> 經度 Longitude (°)</label>
+          <input type="number" step="0.0001" min="-180" max="180" id="input-lon" class="form-input" value="114.1694">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label"><i class="fa-solid fa-mountain"></i> 海拔高度 Altitude (公尺 m)</label>
+        <input type="number" step="1" min="0" max="8848" id="input-alt" class="form-input" value="50">
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeCoordModal()">取消</button>
+        <button class="btn-primary" onclick="submitCustomCoords()"><i class="fa-solid fa-check"></i> 套用座標</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: TLE Details -->
+  <div class="modal-overlay" id="tle-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="color:#fff; font-family:var(--font-display);"><i class="fa-solid fa-database" style="color:var(--cyan);"></i> <span id="tle-modal-title">TLE 軌道根數數據源</span></h3>
+        <button class="modal-close-btn" onclick="closeTleModal()">&times;</button>
+      </div>
+      
+      <div id="tle-status-banner" class="tle-status-banner tle-status-ok">
+        <i class="fa-solid fa-circle-check"></i> 軌道根數處於有效時限內
+      </div>
+
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:10px;">
+        當前編輯：<strong id="tle-modal-sat-target" style="color:var(--cyan);">NOAA-21</strong> 的兩行軌道要素（TLE）。
+      </p>
+      <textarea id="tle-input" class="tle-textarea" spellcheck="false"></textarea>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="fetchLiveTle()"><i class="fa-solid fa-cloud-arrow-down"></i> 從 CelesTrak 更新當前星</button>
+        <button class="btn-primary" onclick="applyCustomTle()"><i class="fa-solid fa-check"></i> 套用並重新計算</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Multi-CDN Script Loading -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+  <script>
+    if (typeof L === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"><\/script>');
+    }
+  </script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.1.4/satellite.min.js"></script>
+  <script>
+    if (typeof satellite === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/satellite.js@4.1.4/dist/satellite.min.js"><\/script>');
+    }
+  </script>
+
+  <!-- Main Engine (Filter Mode + Smooth Orbit + 1 Hz Engine) -->
+  <script>
+    const SATELLITE_CONFIG = {
+      noaa21: {
+        id: "noaa21", name: "NOAA-21 (JPSS-2)", noradId: 54234, cospar: "2022-150A",
+        themeColor: "#00f0ff", themeClass: "sat-theme-cyan", ltan: "13:30 (午後主要作業)",
+        statusBadge: "OPERATIONAL / 主軌道作業中", health: "健康在軌",
+        desc: "<strong>NOAA-21</strong> 為美國 NOAA/NASA 次世代極軌氣象衞星，自 2024 年 3 月 20 日起正式擔綱<strong>午後主要作業極軌衞星</strong>。",
+        specs: [
+          { label: "發射日期 / 載具", value: "2022年11月10日 | Atlas V 401" },
+          { label: "衞星平台 / 濕質量", value: "Northrop Grumman LeoStar-3 | 2,930 kg" },
+          { label: "直接廣播 (Direct Broadcast)", value: "X-band HRD: 7812.0 MHz (25 Mbps OQPSK / RHCP)" }
+        ],
+        payloads: [
+          { name: "VIIRS 輻射成像儀", desc: "可見光紅外線成像（22波段 / 微光DNB夜間觀測 / 雲火林覆蓋）", status: "NOMINAL", icon: "fa-camera" },
+          { name: "ATMS 微波探測儀", desc: "先進微波探測（22通道 / 穿透雲層觀測大氣溫濕度垂直剖面）", status: "NOMINAL", icon: "fa-wave-square" },
+          { name: "CrIS 紅外線探測儀", desc: "高光譜傅立葉紅外探測（2,211 通道 / 數值天氣預報核心）", status: "NOMINAL", icon: "fa-chart-line" },
+          { name: "OMPS 臭氧繪圖剖析儀", desc: "紫外線光譜儀（天底臭氧繪圖與垂直分佈剖面 / 空氣品質氣膠）", status: "NOMINAL", icon: "fa-shield-halved" }
+        ],
+        orbitalParams: [
+          { label: "軌道傾角 (Inclination)", value: "98.72° (太陽同步逆行)" },
+          { label: "軌道週期 (Orbital Period)", value: "101.44 分鐘 (~14.2 圈/日)" },
+          { label: "升交點地方時 (LTAN)", value: "13:30 (午後軌道核心)" },
+          { label: "軌道偏心率 (Eccentricity)", value: "0.000196 (近圓形軌道)" },
+          { label: "近地點高度 (Perigee)", value: "824 km" },
+          { label: "遠地點高度 (Apogee)", value: "835 km" }
+        ],
+        defaultTleLine1: "1 54234U 22150A   26268.19307167  .00000011  00000-0  26022-4 0  9994",
+        defaultTleLine2: "2 54234  98.7518 127.0525 0001961  85.7240 274.4160 14.19534875185840"
+      },
+      noaa20: {
+        id: "noaa20", name: "NOAA-20 (JPSS-1)", noradId: 43013, cospar: "2017-073A",
+        themeColor: "#a855f7", themeClass: "sat-theme-purple", ltan: "13:30 (午後次要作業/在軌備份)",
+        statusBadge: "SECONDARY / 次要軌道作業中", health: "健康在軌",
+        desc: "<strong>NOAA-20</strong> 於 2017 年發射，曾擔綱主要作業星，現與 NOAA-21 相位交錯約 50 分鐘協同運行，提供極軌氣象熱備份與雙星加密觀測。",
+        specs: [
+          { label: "發射日期 / 載具", value: "2017年11月18日 | Delta II 7920-10" },
+          { label: "衞星平台 / 濕質量", value: "Ball Aerospace BCP-2000 | 2,540 kg" },
+          { label: "直接廣播 (Direct Broadcast)", value: "X-band HRD: 7812.0 MHz (15 Mbps QPSK / RHCP)" }
+        ],
+        payloads: [
+          { name: "VIIRS 輻射成像儀", desc: "可見光紅外線成像（22波段 / 微光DNB夜間觀測 / 全球連續覆蓋）", status: "NOMINAL", icon: "fa-camera" },
+          { name: "ATMS 微波探測儀", desc: "先進微波探測（22通道 / 穿雲探測大氣垂直溫濕度剖面）", status: "NOMINAL", icon: "fa-wave-square" },
+          { name: "CrIS 紅外線探測儀", desc: "高光譜傅立葉紅外探測（2,211 通道 / 數值天氣預報核心）", status: "NOMINAL", icon: "fa-chart-line" },
+          { name: "OMPS 臭氧繪圖剖析儀", desc: "紫外線光譜儀（平流層天底臭氧與垂直分佈監測）", status: "NOMINAL", icon: "fa-shield-halved" },
+          { name: "CERES 輻射收支感測器", desc: "雲與地球輻射能量系統（長期氣候監測與能量平衡）", status: "NOMINAL", icon: "fa-sun" }
+        ],
+        orbitalParams: [
+          { label: "軌道傾角 (Inclination)", value: "98.71° (太陽同步逆行)" },
+          { label: "軌道週期 (Orbital Period)", value: "101.44 分鐘 (~14.2 圈/日)" },
+          { label: "升交點地方時 (LTAN)", value: "13:30 (同向午後軌道)" },
+          { label: "軌道偏心率 (Eccentricity)", value: "0.000160 (近圓形軌道)" },
+          { label: "近地點高度 (Perigee)", value: "824 km" },
+          { label: "遠地點高度 (Apogee)", value: "835 km" }
+        ],
+        defaultTleLine1: "1 43013U 17073A   26268.18951234  .00000020  00000-0  31050-4 0  9998",
+        defaultTleLine2: "2 43013  98.7150 126.9920 0001600  80.1200 280.0500 14.19525000456100"
+      },
+      snpp: {
+        id: "snpp", name: "Suomi NPP (SNPP)", noradId: 37849, cospar: "2011-061A",
+        themeColor: "#ff9900", themeClass: "sat-theme-orange", ltan: "13:30 (次要支援/長期氣候)",
+        statusBadge: "SECONDARY / 次要軌道運行中", health: "超期服役 / 狀態優良",
+        desc: "<strong>Suomi NPP</strong> 於 2011 年發射，橋接了 NASA EOS 任務與 JPSS 系列，現作為午後軌道的重要氣象與長期氣候觀測節點。",
+        specs: [
+          { label: "發射日期 / 載具", value: "2011年10月28日 | Delta II 7920-10" },
+          { label: "衞星平台 / 濕質量", value: "Ball Aerospace BCP-2000 | 2,128 kg" },
+          { label: "直接廣播 (Direct Broadcast)", value: "X-band HRD: 7812.0 MHz (15 Mbps QPSK / RHCP)" }
+        ],
+        payloads: [
+          { name: "VIIRS 輻射成像儀", desc: "原型機首航載荷（22波段 / 全球地表環境與雲層連續觀測）", status: "NOMINAL", icon: "fa-camera" },
+          { name: "ATMS 微波探測儀", desc: "全球首台 ATMS（22通道 / 大氣全天候溫濕剖面）", status: "NOMINAL", icon: "fa-wave-square" },
+          { name: "CrIS 紅外線探測儀", desc: "傅立葉變換紅外探測（2,211 通道 / 支援全球數值預報）", status: "NOMINAL", icon: "fa-chart-line" },
+          { name: "OMPS 臭氧監測組", desc: "天底紫外感測（平流層臭氧洞追蹤與氣膠監測）", status: "NOMINAL", icon: "fa-shield-halved" },
+          { name: "CERES 輻射收支感測器", desc: "雲與地球輻射能量系統（地球輻射平衡與氣候研究）", status: "NOMINAL", icon: "fa-sun" }
+        ],
+        orbitalParams: [
+          { label: "軌道傾角 (Inclination)", value: "98.70° (太陽同步逆行)" },
+          { label: "軌道週期 (Orbital Period)", value: "101.45 分鐘 (~14.2 圈/日)" },
+          { label: "升交點地方時 (LTAN)", value: "13:30 (同向午後軌道)" },
+          { label: "軌道偏心率 (Eccentricity)", value: "0.000185 (近圓形軌道)" },
+          { label: "近地點高度 (Perigee)", value: "825 km" },
+          { label: "遠地點高度 (Apogee)", value: "836 km" }
+        ],
+        defaultTleLine1: "1 37849U 11061A   26268.18872591  .00000035  00000-0  34421-4 0  9997",
+        defaultTleLine2: "2 37849  98.7324 126.9854 0001852  76.5412 283.6142 14.19485126767851"
+      },
+      fy3d: {
+        id: "fy3d", name: "FENGYUN 3D (風雲三號D星)", noradId: 43010, cospar: "2017-072A",
+        themeColor: "#ff3399", themeClass: "sat-theme-pink", ltan: "14:00 (午後觀測核心)",
+        statusBadge: "OPERATIONAL / 中國午後主力氣象星", health: "健康在軌運行",
+        desc: "<strong>風雲三號D星（FY-3D）</strong>為中國第二代極軌氣象衞星午後星，配備高光譜紅外與微波大氣探測載荷，與晨昏星協同實現全球高頻次綜合氣象探測。",
+        specs: [
+          { label: "發射日期 / 載具", value: "2017年11月14日 | 長征四號丙 (CZ-4C)" },
+          { label: "衞星平台 / 濕質量", value: "CAST SAST-5000B | 2,450 kg" },
+          { label: "直接廣播 (Direct Broadcast)", value: "X-band AHRPT: 7820.0 MHz (60 Mbps QPSK / RHCP)" }
+        ],
+        payloads: [
+          { name: "MERSI-II 中解析度成像儀", desc: "二代升級成像儀（25通道 / 250m高解析度全球監測）", status: "NOMINAL", icon: "fa-camera" },
+          { name: "HIRAS 高光譜紅外大氣探測儀", desc: "傅立葉干涉儀（1,370通道 / 垂直溫度濕度精細反演）", status: "NOMINAL", icon: "fa-chart-line" },
+          { name: "MWTS-2 微波溫度探測儀", desc: "先進微波溫度計（13通道 / 穿雲探測大氣溫度場）", status: "NOMINAL", icon: "fa-wave-square" },
+          { name: "MWHS-2 微波濕度探測儀", desc: "毫米波/次毫米波濕度計（15通道 / 118GHz與183GHz）", status: "NOMINAL", icon: "fa-water" },
+          { name: "GNOS 掩星探測儀", desc: "全球導航衞星掩星探測（GPS+北斗大氣折射率 profile）", status: "NOMINAL", icon: "fa-satellite-dish" }
+        ],
+        orbitalParams: [
+          { label: "軌道傾角 (Inclination)", value: "99.03° (太陽同步逆行)" },
+          { label: "軌道週期 (Orbital Period)", value: "101.43 分鐘 (~14.2 圈/日)" },
+          { label: "升交點地方時 (LTAN)", value: "14:00 (午後軌道)" },
+          { label: "軌道偏心率 (Eccentricity)", value: "0.000300 (近圓形軌道)" },
+          { label: "近地點高度 (Perigee)", value: "832 km" },
+          { label: "遠地點高度 (Apogee)", value: "836 km" }
+        ],
+        defaultTleLine1: "1 43010U 17072A   26268.18241285  .00000078  00000-0  48312-4 0  9992",
+        defaultTleLine2: "2 43010  99.0285 133.4120 0003014  68.2140 291.9540 14.19501254458921"
+      },
+      terra: {
+        id: "terra", name: "TERRA (EOS AM-1)", noradId: 25994, cospar: "1999-068A",
+        themeColor: "#facc15", themeClass: "sat-theme-gold", ltan: "10:30 (上午旗艦觀測星)",
+        statusBadge: "OPERATIONAL / 傳奇地球旗艦星", health: "長期超期在軌運作",
+        desc: "<strong>TERRA (EOS AM-1)</strong> 為 NASA 地球觀測系統（EOS）旗艦衞星，於 1999 年發射，長年擔綱全球氣候、生物圈、大氣與海洋研究之黃金標準數據源。",
+        specs: [
+          { label: "發射日期 / 載具", value: "1999年12月18日 | Atlas IIAS" },
+          { label: "衞星平台 / 濕質量", value: "Lockheed Martin Missiles & Space | 5,190 kg" },
+          { label: "直接廣播 (Direct Broadcast)", value: "X-band DB: 8212.5 MHz (13.125 Mbps QPSK / RHCP)" }
+        ],
+        payloads: [
+          { name: "MODIS 中解析度光譜成像儀", desc: "36通道地球觀測基準儀（陸地植被/海洋水色/大氣雲膠）", status: "NOMINAL", icon: "fa-camera" },
+          { name: "ASTER 先進星載熱輻射反射儀", desc: "高光譜地球高解析度地表立體製圖與熱輻射監測", status: "NOMINAL", icon: "fa-mountain-sun" },
+          { name: "CERES 雲與輻射收支系統", desc: "全球能量平衡與雲層溫室效應探測", status: "NOMINAL", icon: "fa-sun" },
+          { name: "MISR 多角度成像光譜儀", desc: "9部多角度相機立體觀測大氣氣膠與羽流高度", status: "NOMINAL", icon: "fa-eye" },
+          { name: "MOPITT 對流層污染測繪儀", desc: "大氣對流層一氧化碳與甲烷垂直分佈反演", status: "NOMINAL", icon: "fa-smog" }
+        ],
+        orbitalParams: [
+          { label: "軌道傾角 (Inclination)", value: "98.20° (太陽同步逆行)" },
+          { label: "軌道週期 (Orbital Period)", value: "98.88 分鐘 (~14.5 圈/日)" },
+          { label: "降交點地方時 (LTDN)", value: "10:30 (晨間上午軌道)" },
+          { label: "軌道偏心率 (Eccentricity)", value: "0.001150 (近圓形軌道)" },
+          { label: "近地點高度 (Perigee)", value: "705 km" },
+          { label: "遠地點高度 (Apogee)", value: "721 km" }
+        ],
+        defaultTleLine1: "1 25994U 99068A   26268.17540231  .00000215  00000-0  48123-4 0  9991",
+        defaultTleLine2: "2 25994  98.2014 114.5020 0011520  65.1240 295.1050 14.57112045351240"
+      },
+      metopb: {
+        id: "metopb", name: "MetOp-B (EUMETSAT)", noradId: 38771, cospar: "2012-049A",
+        themeColor: "#10b981", themeClass: "sat-theme-emerald", ltan: "09:30 (晨間軌道主力)",
+        statusBadge: "OPERATIONAL / 歐洲極軌核心星", health: "健康在軌運行",
+        desc: "<strong>MetOp-B</strong> 為歐洲氣象衞星應用組織（EUMETSAT）與 ESA 聯合研發之第一代極軌氣象衞星，與美國 NOAA 午後星互補組成全球極軌骨幹觀測網。",
+        specs: [
+          { label: "發射日期 / 載具", value: "2012年9月17日 | 聯盟 2.1a / 弗雷蓋特 (Soyuz)" },
+          { label: "衞星平台 / 濕質量", value: "Airbus Defence and Space | 4,085 kg" },
+          { label: "直接廣播 (Direct Broadcast)", value: "L-band AHRPT: 1701.3 MHz (3.5 Mbps QPSK / RHCP)" }
+        ],
+        payloads: [
+          { name: "IASI 紅外大氣探測干涉儀", desc: "高光譜傅立葉干涉儀（8,461通道 / 歐洲數值預報核心）", status: "NOMINAL", icon: "fa-chart-line" },
+          { name: "AVHRR/3 先進極高解析度輻射儀", desc: "6通道經典可見光紅外成像儀（全球雲覆蓋與海溫）", status: "NOMINAL", icon: "fa-camera" },
+          { name: "ASCAT 先進散射計", desc: "C波段雷達散射計（全球海面風場與土壤濕度測量）", status: "NOMINAL", icon: "fa-water" },
+          { name: "AMSU-A / MHS 微波探測儀", desc: "先進微波測溫與高頻微波濕度探測器組", status: "NOMINAL", icon: "fa-wave-square" },
+          { name: "GOME-2 臭氧監測儀", desc: "高解析度紫外可見光譜儀（大氣微量氣體與臭氧監測）", status: "NOMINAL", icon: "fa-shield-halved" }
+        ],
+        orbitalParams: [
+          { label: "軌道傾角 (Inclination)", value: "98.71° (太陽同步逆行)" },
+          { label: "軌道週期 (Orbital Period)", value: "101.40 分鐘 (~14.2 圈/日)" },
+          { label: "降交點地方時 (LTDN)", value: "09:30 (晨間軌道)" },
+          { label: "軌道偏心率 (Eccentricity)", value: "0.000180 (近圓形軌道)" },
+          { label: "近地點高度 (Perigee)", value: "820 km" },
+          { label: "遠地點高度 (Apogee)", value: "833 km" }
+        ],
+        defaultTleLine1: "1 38771U 12049A   26268.18120541  .00000045  00000-0  39512-4 0  9995",
+        defaultTleLine2: "2 38771  98.7125 125.4120 0001815  72.4510 287.6540 14.19515000725140"
+      },
+      metopc: {
+        id: "metopc", name: "MetOp-C (EUMETSAT)", noradId: 43689, cospar: "2018-087A",
+        themeColor: "#38bdf8", themeClass: "sat-theme-sky", ltan: "09:30 (晨間最新主作業星)",
+        statusBadge: "PRIMARY / 歐洲主要作業極軌星", health: "狀態優良 / 最年輕一代",
+        desc: "<strong>MetOp-C</strong> 於 2018 年發射，為第一代 MetOp 系列的最終星，現作為 EUMETSAT 晨間主控極軌氣象星，與 MetOp-B 雙星協同提供高密度大氣探測數據。",
+        specs: [
+          { label: "發射日期 / 載具", value: "2018年11月7日 | 聯盟 ST-B / 弗雷蓋特 (Soyuz)" },
+          { label: "衞星平台 / 濕質量", value: "Airbus Defence and Space | 4,084 kg" },
+          { label: "直接廣播 (Direct Broadcast)", value: "L-band AHRPT: 1701.3 MHz (3.5 Mbps QPSK / RHCP)" }
+        ],
+        payloads: [
+          { name: "IASI 紅外大氣探測干涉儀", desc: "高光譜傅立葉干涉儀（8,461通道 / 溫度濕度精準同化）", status: "NOMINAL", icon: "fa-chart-line" },
+          { name: "AVHRR/3 先進極高解析度輻射儀", desc: "6通道全球地表、海面與雲頂溫度高頻監控", status: "NOMINAL", icon: "fa-camera" },
+          { name: "ASCAT 先進散射計", desc: "海面風向風速精準反演（數值天氣預報必備載荷）", status: "NOMINAL", icon: "fa-water" },
+          { name: "MHS / AMSU-A 微波探測儀", desc: "微波溫濕垂直剖面全天候穿雲探測", status: "NOMINAL", icon: "fa-wave-square" },
+          { name: "GRAS 全球導航衞星接收儀", desc: "GNSS 大氣掩星探測儀（折射率高垂直解析度剖面）", status: "NOMINAL", icon: "fa-satellite-dish" }
+        ],
+        orbitalParams: [
+          { label: "軌道傾角 (Inclination)", value: "98.71° (太陽同步逆行)" },
+          { label: "軌道週期 (Orbital Period)", value: "101.40 分鐘 (~14.2 圈/日)" },
+          { label: "降交點地方時 (LTDN)", value: "09:30 (同向晨間軌道)" },
+          { label: "軌道偏心率 (Eccentricity)", value: "0.000170 (近圓形軌道)" },
+          { label: "近地點高度 (Perigee)", value: "820 km" },
+          { label: "遠地點高度 (Apogee)", value: "833 km" }
+        ],
+        defaultTleLine1: "1 43689U 18087A   26268.18451230  .00000030  00000-0  32104-4 0  9996",
+        defaultTleLine2: "2 43689  98.7110 125.3850 0001720  70.1250 289.9800 14.19518000412580"
+      }
+    };
+
+    let activeSatKey = "noaa21";
+    let satDisplayMode = "all"; // "all" (顯示全部衞星) | "selected" (僅顯示已選擇衞星)
+
+    const satEntities = {
+      noaa21: { satrec: null, tleLine1: "", tleLine2: "", marker: null, circle: null, trackPast: null, trackFuture: null, cachedPast: [], cachedFuture: [], currentPos: null },
+      noaa20: { satrec: null, tleLine1: "", tleLine2: "", marker: null, circle: null, trackPast: null, trackFuture: null, cachedPast: [], cachedFuture: [], currentPos: null },
+      snpp:   { satrec: null, tleLine1: "", tleLine2: "", marker: null, circle: null, trackPast: null, trackFuture: null, cachedPast: [], cachedFuture: [], currentPos: null },
+      fy3d:   { satrec: null, tleLine1: "", tleLine2: "", marker: null, circle: null, trackPast: null, trackFuture: null, cachedPast: [], cachedFuture: [], currentPos: null },
+      terra:  { satrec: null, tleLine1: "", tleLine2: "", marker: null, circle: null, trackPast: null, trackFuture: null, cachedPast: [], cachedFuture: [], currentPos: null },
+      metopb: { satrec: null, tleLine1: "", tleLine2: "", marker: null, circle: null, trackPast: null, trackFuture: null, cachedPast: [], cachedFuture: [], currentPos: null },
+      metopc: { satrec: null, tleLine1: "", tleLine2: "", marker: null, circle: null, trackPast: null, trackFuture: null, cachedPast: [], cachedFuture: [], currentPos: null }
+    };
+
+    let simTime = new Date();
+    let simSpeed = 1;
+    let isPaused = false;
+    let isFollowMode = false;
+    let timeOffsetMs = 0;
+    let lastClockTick = Date.now();
+    let tickerTimerId = null;
+    let lastTrackUpdateSec = 0;
+
+    let observer = {
+      lat: 22.3193,
+      lon: 114.1694,
+      alt: 0.05,
+      name: "香港觀測站 (Hong Kong)"
+    };
+
+    let currentMapEngine = "esri";
+    let map = null;
+    let observerMarker = null;
+    let currentTileLayer = null;
+
+    const worldPolygons = [
+      [[-17,15],[-15,28],[0,36],[12,38],[25,32],[33,31],[34,27],[43,12],[51,12],[45,5],[40,-5],[35,-15],[32,-28],[28,-33],[18,-35],[15,-25],[12,-15],[8,-5],[0,5],[-10,5],[-17,15]],
+      [[-9,38],[-9,43],[0,43],[3,47],[5,53],[9,55],[18,55],[25,60],[30,70],[40,68],[60,70],[80,73],[100,77],[120,74],[140,73],[160,70],[170,68],[180,65],[170,60],[155,58],[140,53],[130,42],[122,37],[120,30],[110,20],[105,10],[100,5],[103,1],[98,10],[90,22],[80,13],[75,10],[70,22],[60,25],[50,30],[36,36],[26,40],[15,40],[0,43],[-9,38]],
+      [[-168,66],[-160,71],[-130,70],[-120,76],[-90,70],[-80,73],[-65,60],[-55,50],[-65,44],[-75,35],[-80,25],[-82,23],[-97,26],[-97,20],[-80,8],[-83,10],[-90,15],[-105,20],[-110,23],[-115,30],[-124,38],[-125,49],[-130,55],[-165,60],[-168,66]],
+      [[-80,8],[-75,11],[-60,10],[-50,0],[-35,-5],[-35,-10],[-40,-22],[-50,-30],[-55,-38],[-65,-55],[-72,-55],[-75,-45],[-72,-30],[-80,-5],[-80,8]],
+      [[113,-22],[115,-34],[135,-35],[147,-38],[153,-28],[145,-15],[130,-12],[113,-22]],
+      [[-45,60],[-30,65],[-20,75],[-30,83],[-55,83],[-60,75],[-50,65],[-45,60]],
+      [[130,32],[133,34],[140,36],[141,43],[145,44],[141,39],[136,35],[130,32]],
+      [[-180,-75],[-120,-75],[-60,-65],[0,-70],[60,-67],[120,-66],[180,-75],[180,-90],[-180,-90],[-180,-75]]
+    ];
+
+    function parseTleEpoch(line1) {
+      if (!line1 || line1.length < 32) return null;
+      try {
+        const epochStr = line1.substring(18, 32).trim();
+        const yearPart = parseInt(epochStr.substring(0, 2), 10);
+        const dayPart = parseFloat(epochStr.substring(2));
+        const fullYear = yearPart >= 57 ? 1900 + yearPart : 2000 + yearPart;
+        const epochDate = new Date(Date.UTC(fullYear, 0, 1));
+        epochDate.setTime(epochDate.getTime() + (dayPart - 1) * 86400000);
+        return epochDate;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function checkActiveTleAge() {
+      const entity = satentitiesCurrent();
+      const epoch = parseTleEpoch(entity.tleLine1);
+      const btn = document.getElementById('btn-tle-menu');
+      const icon = document.getElementById('btn-tle-icon');
+      const text = document.getElementById('btn-tle-text');
+      const banner = document.getElementById('tle-status-banner');
+
+      if (!epoch || !btn) return;
+
+      const now = new Date();
+      const diffHours = (now.getTime() - epoch.getTime()) / (1000 * 60 * 60);
+      const diffDays = (diffHours / 24).toFixed(1);
+
+      if (diffHours > 48) {
+        btn.classList.add('tle-warning');
+        if (icon) icon.className = 'fa-solid fa-triangle-exclamation';
+        if (text) text.innerText = `${SATELLITE_CONFIG[activeSatKey].name.split(' ')[0]} TLE 需更新`;
+        btn.title = `警告：${SATELLITE_CONFIG[activeSatKey].name} TLE 已逾期 ${diffDays} 天！`;
+
+        if (banner) {
+          banner.className = 'tle-status-banner tle-status-warn';
+          banner.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <strong>警告：</strong>${SATELLITE_CONFIG[activeSatKey].name} 歷元為 ${epoch.toISOString().substr(0, 10)}，已逾期 <strong>${diffDays} 天</strong>。`;
+        }
+      } else {
+        btn.classList.remove('tle-warning');
+        if (icon) icon.className = 'fa-solid fa-code';
+        if (text) text.innerText = 'TLE 軌道根數';
+        btn.title = `TLE 最新 (${diffDays} 天前)`;
+
+        if (banner) {
+          banner.className = 'tle-status-banner tle-status-ok';
+          banner.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${SATELLITE_CONFIG[activeSatKey].name} 軌道根數有效（歷元: ${epoch.toISOString().substr(0, 10)}）。`;
+        }
+      }
+    }
+
+    function satentitiesCurrent() {
+      return satEntities[activeSatKey];
+    }
+
+    // --- 切換地圖顯示模式 (全部衞星 / 僅顯示已選擇衞星) ---
+    function toggleSatDisplayMode() {
+      satDisplayMode = satDisplayMode === "all" ? "selected" : "all";
+      try { localStorage.setItem('sat_display_mode', satDisplayMode); } catch (e) {}
+
+      updateSatDisplayModeUI();
+      applySatVisibilityToLayers();
+      if (currentMapEngine === 'canvas') renderCanvasMap();
+    }
+
+    function updateSatDisplayModeUI() {
+      const btn = document.getElementById('btn-toggle-viewmode');
+      const text = document.getElementById('text-viewmode');
+
+      if (satDisplayMode === "selected") {
+        btn.classList.add('filter-btn-active');
+        text.innerText = "僅選取星";
+        btn.title = "目前只顯示當前選取的衞星，點擊切換為顯示全部";
+      } else {
+        btn.classList.remove('filter-btn-active');
+        text.innerText = "全部衞星";
+        btn.title = "目前顯示所有極軌衞星，點擊切換為僅顯示當前選擇星";
+      }
+
+      // 依顯示模式動態調整圖例清單顯示
+      Object.keys(SATELLITE_CONFIG).forEach(k => {
+        const lgItem = document.getElementById(`lg-${k}`);
+        if (lgItem) {
+          if (satDisplayMode === "selected" && k !== activeSatKey) {
+            lgItem.style.display = 'none';
+          } else {
+            lgItem.style.display = 'flex';
+          }
+        }
+      });
+    }
+
+    // 將可見性套用至 Leaflet 圖層
+    function applySatVisibilityToLayers() {
+      if (!map) return;
+      Object.keys(SATELLITE_CONFIG).forEach(satKey => {
+        const entity = satEntities[satKey];
+        const shouldShow = (satDisplayMode === "all") || (satKey === activeSatKey);
+
+        if (shouldShow) {
+          if (entity.marker && !map.hasLayer(entity.marker)) map.addLayer(entity.marker);
+          if (entity.circle && !map.hasLayer(entity.circle)) map.addLayer(entity.circle);
+          if (entity.trackPast && !map.hasLayer(entity.trackPast)) map.addLayer(entity.trackPast);
+          if (entity.trackFuture && !map.hasLayer(entity.trackFuture)) map.addLayer(entity.trackFuture);
+        } else {
+          if (entity.marker && map.hasLayer(entity.marker)) map.removeLayer(entity.marker);
+          if (entity.circle && map.hasLayer(entity.circle)) map.removeLayer(entity.circle);
+          if (entity.trackPast && map.hasLayer(entity.trackPast)) map.removeLayer(entity.trackPast);
+          if (entity.trackFuture && map.hasLayer(entity.trackFuture)) map.removeLayer(entity.trackFuture);
+        }
+      });
+    }
+
+    function switchActiveSatellite(satKey) {
+      if (!SATELLITE_CONFIG[satKey]) return;
+      activeSatKey = satKey;
+      const config = SATELLITE_CONFIG[satKey];
+
+      const allKeys = ['noaa21', 'noaa20', 'snpp', 'fy3d', 'terra', 'metopb', 'metopc'];
+      allKeys.forEach(k => {
+        const btn = document.getElementById(`tab-${k}`);
+        if (btn) btn.className = k === satKey ? `sat-tab-btn active-${k}` : 'sat-tab-btn';
+      });
+
+      document.getElementById('header-main-title').innerHTML = `
+        ${config.name}
+        <span class="badge" id="header-status-badge">${config.statusBadge}</span>
+      `;
+      document.getElementById('header-sub-title').innerText = `NORAD ID: ${config.noradId} | 國際代號: ${config.cospar} | 太陽同步極軌氣象衞星 (${config.ltan})`;
+      
+      const badgeIcon = document.getElementById('header-badge-icon');
+      badgeIcon.className = 'satellite-icon-badge';
+      badgeIcon.style.borderColor = config.themeColor;
+      badgeIcon.style.color = config.themeColor;
+      badgeIcon.style.boxShadow = `0 0 15px ${config.themeColor}`;
+
+      renderSatelliteInfoPanels(config);
+      checkActiveTleAge();
+
+      // 在「僅顯示當前衞星」模式下，切換星時即時重置可見圖層與圖例
+      applySatVisibilityToLayers();
+      updateSatDisplayModeUI();
+
+      if (isFollowMode && map && satEntities[satKey].currentPos) {
+        map.panTo([satEntities[satKey].currentPos.lat, satEntities[satKey].currentPos.lon], { animate: false });
+      }
+      
+      updateTick();
+    }
+
+    function renderSatelliteInfoPanels(config) {
+      document.getElementById('orbital-card-sat-name').innerText = config.name;
+      document.getElementById('payload-card-sat-name').innerText = config.name;
+
+      document.getElementById('orbital-params-grid').innerHTML = config.orbitalParams.map(item => `
+        <div class="data-cell">
+          <div class="data-cell-label">${item.label}</div>
+          <div class="data-cell-value">${item.value}</div>
+        </div>
+      `).join('');
+
+      document.getElementById('payload-items-container').innerHTML = config.payloads.map(inst => `
+        <div class="instrument-item">
+          <div>
+            <div class="inst-name"><i class="fa-solid ${inst.icon}" style="color:${config.themeColor}; font-size:0.8rem;"></i> ${inst.name}</div>
+            <div class="inst-desc">${inst.desc}</div>
+          </div>
+          <div class="inst-status-badge">${inst.status}</div>
+        </div>
+      `).join('');
+
+      document.getElementById('sat-desc-text').innerHTML = `<p>${config.desc}</p>`;
+      document.getElementById('sat-info-health').innerHTML = `<i class="fa-solid fa-circle-dot"></i> ${config.health}`;
+
+      document.getElementById('sat-info-grid').innerHTML = config.specs.map(spec => `
+        <div class="data-cell">
+          <div class="data-cell-label">${spec.label}</div>
+          <div class="data-cell-value" style="font-size:0.8rem; color:${config.themeColor};">${spec.value}</div>
+        </div>
+      `).join('');
+
+      document.querySelectorAll('.ribbon-item').forEach(el => {
+        el.style.setProperty('--theme-color', config.themeColor);
+      });
+    }
+
+    function loadSavedSettings() {
+      try {
+        const savedObs = localStorage.getItem('sat_observer');
+        if (savedObs) {
+          const parsed = JSON.parse(savedObs);
+          if (parsed && !isNaN(parsed.lat) && !isNaN(parsed.lon)) {
+            observer.lat = Number(parsed.lat);
+            observer.lon = Number(parsed.lon);
+            observer.alt = Number(parsed.alt) || 0.05;
+            observer.name = parsed.name || "香港觀測站 (Hong Kong)";
+          }
+        }
+
+        Object.keys(SATELLITE_CONFIG).forEach(key => {
+          satEntities[key].tleLine1 = localStorage.getItem(`sat_tle_${key}_l1`) || SATELLITE_CONFIG[key].defaultTleLine1;
+          satEntities[key].tleLine2 = localStorage.getItem(`sat_tle_${key}_l2`) || SATELLITE_CONFIG[key].defaultTleLine2;
+        });
+
+        const savedLayer = localStorage.getItem('sat_map_layer');
+        if (savedLayer) {
+          currentMapEngine = savedLayer;
+          const selectElem = document.getElementById('map-layer-select');
+          if (selectElem) selectElem.value = savedLayer;
+        }
+
+        const savedMode = localStorage.getItem('sat_display_mode');
+        if (savedMode && (savedMode === "all" || savedMode === "selected")) {
+          satDisplayMode = savedMode;
+        }
+      } catch (e) {
+        console.warn("讀取 LocalStorage 失敗:", e);
+      }
+    }
+
+    function saveObserverSettings() {
+      try { localStorage.setItem('sat_observer', JSON.stringify(observer)); } catch (e) {}
+    }
+
+    function saveSatTle(satKey, l1, l2) {
+      try {
+        localStorage.setItem(`sat_tle_${satKey}_l1`, l1);
+        localStorage.setItem(`sat_tle_${satKey}_l2`, l2);
+      } catch (e) {}
+    }
+
+    function clearSavedSettings() {
+      if (confirm("是否確定重設所有自訂儲存設定（七星 TLE、觀測點座標、底圖偏好、顯示模式）？")) {
+        localStorage.clear();
+        location.reload();
+      }
+    }
+
+    function initSatrecFor(satKey, line1, line2) {
+      if (typeof satellite === 'undefined') return false;
+      try {
+        const rec = satellite.twoline2satrec(line1.trim(), line2.trim());
+        satEntities[satKey].satrec = rec;
+        satEntities[satKey].tleLine1 = line1;
+        satEntities[satKey].tleLine2 = line2;
+        return true;
+      } catch (e) {
+        alert(`${satKey} TLE 解析失敗: ` + e.message);
+        return false;
+      }
+    }
+
+    function initLeafletMap() {
+      if (typeof L === 'undefined') {
+        changeMapLayer('canvas');
+        return;
+      }
+
+      try {
+        map = L.map('map', {
+          center: [15, 110],
+          zoom: 2,
+          minZoom: 1,
+          maxZoom: 10
+        });
+
+        setLeafletTileSource(currentMapEngine === 'canvas' ? 'esri' : currentMapEngine);
+
+        const FIXED_FOOTPRINT_RADIUS = 3050000;
+
+        const satDef = [
+          { key: 'noaa21', theme: 'sat-theme-cyan',    color: '#00f0ff', label: 'NOAA-21', z: 1000 },
+          { key: 'noaa20', theme: 'sat-theme-purple',  color: '#a855f7', label: 'NOAA-20', z: 995 },
+          { key: 'snpp',   theme: 'sat-theme-orange',  color: '#ff9900', label: 'SNPP',    z: 990 },
+          { key: 'fy3d',   theme: 'sat-theme-pink',    color: '#ff3399', label: 'FY-3D',   z: 985 },
+          { key: 'terra',  theme: 'sat-theme-gold',    color: '#facc15', label: 'TERRA',   z: 980 },
+          { key: 'metopb', theme: 'sat-theme-emerald', color: '#10b981', label: 'MetOp-B', z: 975 },
+          { key: 'metopc', theme: 'sat-theme-sky',     color: '#38bdf8', label: 'MetOp-C', z: 970 }
+        ];
+
+        satDef.forEach(s => {
+          const icon = L.divIcon({
+            className: `custom-sat-icon ${s.theme}`,
+            html: `<div class="satellite-marker-container"><div class="sat-icon-core"><i class="fa-solid fa-satellite"></i></div><div class="sat-name-tag">${s.label}</div></div>`,
+            iconSize: [44, 44], iconAnchor: [22, 22]
+          });
+          satEntities[s.key].marker = L.marker([0, 0], { icon: icon, zIndexOffset: s.z });
+          satEntities[s.key].circle = L.circle([0, 0], { radius: FIXED_FOOTPRINT_RADIUS, color: s.color, weight: 1.2, opacity: 0.6, fillColor: s.color, fillOpacity: 0.05, interactive: false });
+        });
+
+        // 依據當前顯示模式決定將哪些圖層掛載到地圖上
+        applySatVisibilityToLayers();
+
+        const obsIcon = L.divIcon({
+          className: 'custom-obs-icon',
+          html: `<div style="background:#00ff88; width:12px; height:12px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 10px #00ff88;"></div>`,
+          iconSize: [12, 12], iconAnchor: [6, 6]
+        });
+        observerMarker = L.marker([observer.lat, observer.lon], { icon: obsIcon }).addTo(map);
+        observerMarker.bindPopup(`<b>${observer.name}</b><br>${observer.lat.toFixed(4)}°, ${observer.lon.toFixed(4)}°`);
+
+        map.on('click', function(e) {
+          setObserverLocation(e.latlng.lat, e.latlng.lng, observer.alt * 1000, `地圖選取點 (${e.latlng.lat.toFixed(2)}°, ${e.latlng.lng.toFixed(2)}°)`);
+        });
+
+        setTimeout(() => { if (map) map.invalidateSize(); }, 250);
+        window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
+
+      } catch (err) {
+        changeMapLayer('canvas');
+      }
+    }
+
+    function setLeafletTileSource(type) {
+      if (!map) return;
+      if (currentTileLayer) map.removeLayer(currentTileLayer);
+
+      let tileUrl = '', attrib = '';
+      if (type === 'esri') {
+        tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+        attrib = '&copy; Esri, Maxar';
+      } else if (type === 'osm') {
+        tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+        attrib = '&copy; OpenStreetMap contributors';
+      } else if (type === 'carto') {
+        tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+        attrib = '&copy; CARTO';
+      }
+
+      currentTileLayer = L.tileLayer(tileUrl, { attribution: attrib, maxZoom: 18 }).addTo(map);
+    }
+
+    function changeMapLayer(layerType) {
+      currentMapEngine = layerType;
+      try { localStorage.setItem('sat_map_layer', layerType); } catch (e) {}
+
+      const mapDiv = document.getElementById('map');
+      const canvasMap = document.getElementById('canvas-map');
+      const selectElem = document.getElementById('map-layer-select');
+      if (selectElem) selectElem.value = layerType;
+
+      if (layerType === 'canvas') {
+        mapDiv.style.display = 'none';
+        canvasMap.style.display = 'block';
+        resizeCanvas();
+      } else {
+        canvasMap.style.display = 'none';
+        mapDiv.style.display = 'block';
+        if (!map) {
+          initLeafletMap();
+        } else {
+          setLeafletTileSource(layerType);
+          setTimeout(() => { map.invalidateSize(); }, 150);
+        }
+      }
+    }
+
+    function toggleFollowMode() {
+      isFollowMode = !isFollowMode;
+      const btn = document.getElementById('btn-follow');
+      if (isFollowMode) {
+        btn.classList.add('active-lock');
+        btn.innerHTML = `<i class="fa-solid fa-lock"></i> 跟隨中 (${SATELLITE_CONFIG[activeSatKey].name.split(' ')[0]})`;
+      } else {
+        btn.classList.remove('active-lock');
+        btn.innerHTML = '<i class="fa-solid fa-crosshairs"></i> 鎖定跟隨';
+      }
+    }
+
+    function zoomToSat() {
+      const pos = satEntities[activeSatKey].currentPos;
+      if (pos && map) {
+        map.setView([pos.lat, pos.lon], 5);
+      }
+    }
+
+    function resizeCanvas() {
+      const c = document.getElementById('canvas-map');
+      if (!c) return;
+      c.width = c.parentElement.clientWidth;
+      c.height = c.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function calculateSatPosition(satrec, date) {
+      if (typeof satellite === 'undefined' || !satrec) return null;
+      try {
+        const pv = satellite.propagate(satrec, date);
+        const positionEci = pv.position;
+        const velocityEci = pv.velocity;
+
+        if (!positionEci || !velocityEci || isNaN(positionEci.x)) return null;
+
+        const gmst = satellite.gstime(date);
+        const geodetic = satellite.eciToGeodetic(positionEci, gmst);
+        const lat = satellite.radiansToDegrees(geodetic.latitude);
+        let lon = satellite.radiansToDegrees(geodetic.longitude);
+        const alt = geodetic.height;
+
+        lon = ((lon + 180) % 360 + 360) % 360 - 180;
+
+        const vel = Math.sqrt(
+          velocityEci.x * velocityEci.x +
+          velocityEci.y * velocityEci.y +
+          velocityEci.z * velocityEci.z
+        );
+
+        return {
+          lat: lat, lon: lon, alt: alt, velocity: vel,
+          eciPos: positionEci, eciVel: velocityEci, gmst: gmst
+        };
+      } catch (err) {
+        return null;
+      }
+    }
+
+    function splitAtAntimeridian(coords) {
+      const segs = [];
+      let cur = [];
+      for (let i = 0; i < coords.length; i++) {
+        const pt = coords[i];
+        if (cur.length > 0) {
+          const prev = cur[cur.length - 1];
+          if (Math.abs(pt[1] - prev[1]) > 180) {
+            let sign = prev[1] > 0 ? 1 : -1;
+            let lon1 = prev[1];
+            let lon2 = pt[1] + sign * 360;
+            let ratio = (sign * 180 - lon1) / (lon2 - lon1);
+            let crossLat = prev[0] + (pt[0] - prev[0]) * ratio;
+
+            cur.push([crossLat, sign * 180]);
+            segs.push(cur);
+
+            cur = [[crossLat, -sign * 180]];
+          }
+        }
+        cur.push(pt);
+      }
+      if (cur.length > 0) segs.push(cur);
+      return segs;
+    }
+
+    function updateAllGroundTracks(currentDate) {
+      Object.keys(SATELLITE_CONFIG).forEach(satKey => {
+        const entity = satEntities[satKey];
+        if (!entity.satrec) return;
+
+        entity.cachedPast = [];
+        entity.cachedFuture = [];
+
+        for (let min = -45; min <= 0; min += 1.0) {
+          const d = new Date(currentDate.getTime() + min * 60000);
+          const p = calculateSatPosition(entity.satrec, d);
+          if (p) entity.cachedPast.push([p.lat, p.lon]);
+        }
+
+        for (let min = 0; min <= 90; min += 1.0) {
+          const d = new Date(currentDate.getTime() + min * 60000);
+          const p = calculateSatPosition(entity.satrec, d);
+          if (p) entity.cachedFuture.push([p.lat, p.lon]);
+        }
+
+        if (map) {
+          const pastSegs = splitAtAntimeridian(entity.cachedPast);
+          const futureSegs = splitAtAntimeridian(entity.cachedFuture);
+          const color = SATELLITE_CONFIG[satKey].themeColor;
+
+          if (!entity.trackPast) {
+            entity.trackPast = L.polyline(pastSegs, {
+              color: color, weight: 1.5, opacity: 0.35, dashArray: '4, 6'
+            });
+          } else {
+            entity.trackPast.setLatLngs(pastSegs);
+          }
+
+          if (!entity.trackFuture) {
+            entity.trackFuture = L.polyline(futureSegs, {
+              color: color, weight: 2.0, opacity: 0.85
+            });
+          } else {
+            entity.trackFuture.setLatLngs(futureSegs);
+          }
+        }
+      });
+
+      // 重新整理各折線圖層的可見性
+      applySatVisibilityToLayers();
+    }
+
+    function calculateLookAngles(satPos, date) {
+      if (!satPos || !satPos.eciPos || typeof satellite === 'undefined') return null;
+      try {
+        const obsLat = Number(observer.lat);
+        const obsLon = Number(observer.lon);
+        const obsAlt = Number(observer.alt) || 0.05;
+
+        if (isNaN(obsLat) || isNaN(obsLon)) return null;
+
+        const observerGd = {
+          longitude: satellite.degreesToRadians(obsLon),
+          latitude: satellite.degreesToRadians(obsLat),
+          height: obsAlt
+        };
+
+        const gmst = satellite.gstime(date);
+        const positionEcf = satellite.eciToEcf(satPos.eciPos, gmst);
+        const lookAngles = satellite.ecfToLookAngles(observerGd, positionEcf);
+
+        const az = (satellite.radiansToDegrees(lookAngles.azimuth) + 360) % 360;
+        const el = satellite.radiansToDegrees(lookAngles.elevation);
+        const range = lookAngles.rangeSat;
+
+        let doppler = 0;
+        const entity = satentitiesCurrent();
+        if (entity && entity.satrec) {
+          const nextDate = new Date(date.getTime() + 1000);
+          const nextSat = calculateSatPosition(entity.satrec, nextDate);
+          if (nextSat && nextSat.eciPos) {
+            const nextGmst = satellite.gstime(nextDate);
+            const nextEcf = satellite.eciToEcf(nextSat.eciPos, nextGmst);
+            const nextLook = satellite.ecfToLookAngles(observerGd, nextEcf);
+            const rangeRate = nextLook.rangeSat - range;
+            const f0 = 7812.0;
+            const c = 299792.458;
+            doppler = - (rangeRate / c) * f0 * 1000.0;
+          }
+        }
+
+        return {
+          azimuth: isNaN(az) ? 0 : az,
+          elevation: isNaN(el) ? -90 : el,
+          range: isNaN(range) ? 0 : range,
+          dopplerKHz: isNaN(doppler) ? 0 : doppler
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function setObserverLocation(lat, lon, altMeters, name) {
+      observer.lat = Number(parseFloat(lat).toFixed(4));
+      observer.lon = Number(parseFloat(lon).toFixed(4));
+      observer.alt = Number(((parseFloat(altMeters) || 0) / 1000.0).toFixed(4));
+      observer.name = name || "自訂地面站";
+
+      saveObserverSettings();
+
+      if (observerMarker) {
+        observerMarker.setLatLng([observer.lat, observer.lon]);
+        observerMarker.getPopup().setContent(`<b>${observer.name}</b><br>${observer.lat.toFixed(4)}°, ${observer.lon.toFixed(4)}°`);
+      }
+
+      document.getElementById('gs-name').innerText = observer.name;
+      document.getElementById('gs-coords').innerText = 
+        `${Math.abs(observer.lat).toFixed(4)}° ${observer.lat >= 0 ? 'N' : 'S'}, ` +
+        `${Math.abs(observer.lon).toFixed(4)}° ${observer.lon >= 0 ? 'E' : 'W'} ` +
+        `(海拔 ${(observer.alt * 1000).toFixed(0)}m)`;
+      document.getElementById('legend-obs-name').innerText = `觀測點 (${observer.name})`;
+
+      document.getElementById('input-station-name').value = observer.name;
+      document.getElementById('input-lat').value = observer.lat.toFixed(4);
+      document.getElementById('input-lon').value = observer.lon.toFixed(4);
+      document.getElementById('input-alt').value = (observer.alt * 1000).toFixed(0);
+      
+      updateTick();
+    }
+
+    function renderCanvasMap() {
+      const c = document.getElementById('canvas-map');
+      if (!c || c.style.display === 'none') return;
+      const ctx = c.getContext('2d');
+      const w = c.width, h = c.height;
+
+      ctx.fillStyle = '#060914';
+      ctx.fillRect(0, 0, w, h);
+
+      function toXY(lon, lat) {
+        return [((lon + 180) / 360) * w, ((90 - lat) / 180) * h];
+      }
+
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.08)'; ctx.lineWidth = 1;
+      for (let lon = -180; lon <= 180; lon += 30) {
+        const [x] = toXY(lon, 0); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      }
+      for (let lat = -60; lat <= 60; lat += 30) {
+        const [, y] = toXY(0, lat); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.05)'; ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)'; ctx.lineWidth = 1.2;
+      for (const poly of worldPolygons) {
+        ctx.beginPath();
+        for (let i = 0; i < poly.length; i++) {
+          const [px, py] = toXY(poly[i][0], poly[i][1]);
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+
+      // Canvas 依據過濾狀態決定繪製全部還是僅繪製當前選取星
+      Object.keys(SATELLITE_CONFIG).forEach(key => {
+        if (satDisplayMode === "selected" && key !== activeSatKey) return;
+
+        const entity = satEntities[key];
+        const cfg = SATELLITE_CONFIG[key];
+        if (!entity.currentPos) return;
+
+        const [sx, sy] = toXY(entity.currentPos.lon, entity.currentPos.lat);
+        const fovDeg = 27.6;
+        const rx = (fovDeg / 360) * w;
+        const ry = (fovDeg / 180) * h;
+
+        ctx.strokeStyle = cfg.themeColor;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+
+        ctx.fillStyle = cfg.themeColor;
+        ctx.beginPath(); ctx.arc(sx, sy, 5.0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.stroke();
+
+        ctx.fillStyle = cfg.themeColor;
+        ctx.font = 'bold 10px Chakra Petch';
+        ctx.fillText(cfg.name.split(' ')[0], sx + 8, sy - 5);
+      });
+
+      const [ox, oy] = toXY(observer.lon, observer.lat);
+      ctx.fillStyle = '#00ff88';
+      ctx.beginPath(); ctx.arc(ox, oy, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = '10px JetBrains Mono';
+      ctx.fillText(observer.name, ox + 8, oy - 4);
+    }
+
+    // --- 1 Hz 定時器核心心跳 ---
+    function updateTick() {
+      const now = Date.now();
+      const realDeltaMs = Math.min(now - lastClockTick, 2000);
+      lastClockTick = now;
+
+      if (simSpeed === 1 && !isPaused) {
+        simTime = new Date();
+      } else if (!isPaused) {
+        timeOffsetMs += realDeltaMs * (simSpeed - 1);
+        simTime = new Date(Date.now() + timeOffsetMs);
+      }
+
+      document.getElementById('clock-utc').innerText = simTime.toISOString().substr(11, 8) + " UTC";
+      document.getElementById('clock-local').innerText = "本地時間: " + simTime.toLocaleTimeString();
+
+      // 1. 同步更新七星位置
+      Object.keys(SATELLITE_CONFIG).forEach(satKey => {
+        const entity = satEntities[satKey];
+        if (!entity.satrec) return;
+
+        const p = calculateSatPosition(entity.satrec, simTime);
+        entity.currentPos = p;
+
+        if (p && map) {
+          if (entity.marker) entity.marker.setLatLng([p.lat, p.lon]);
+          if (entity.circle) entity.circle.setLatLng([p.lat, p.lon]);
+        }
+      });
+
+      // 2. 視角鎖定
+      const currentActivePos = satEntities[activeSatKey].currentPos;
+      if (isFollowMode && map && currentActivePos) {
+        map.panTo([currentActivePos.lat, currentActivePos.lon], { animate: false });
+      }
+
+      // 3. 遙測文字與過境預報
+      if (currentActivePos) {
+        const latVal = Math.abs(currentActivePos.lat).toFixed(4);
+        const latDir = currentActivePos.lat >= 0 ? "°N" : "°S";
+        const lonVal = Math.abs(currentActivePos.lon).toFixed(4);
+        const lonDir = currentActivePos.lon >= 0 ? "°E" : "°W";
+
+        document.getElementById('val-lat').innerHTML = `${latVal}<span class="ribbon-unit">${latDir}</span>`;
+        document.getElementById('val-lon').innerHTML = `${lonVal}<span class="ribbon-unit">${lonDir}</span>`;
+        document.getElementById('val-alt').innerHTML = `${currentActivePos.alt.toFixed(1)}<span class="ribbon-unit">km</span>`;
+        document.getElementById('val-vel').innerHTML = `${currentActivePos.velocity.toFixed(3)}<span class="ribbon-unit">km/s</span>`;
+
+        const nextPos = calculateSatPosition(satEntities[activeSatKey].satrec, new Date(simTime.getTime() + 2000));
+        if (nextPos) {
+          const dLon = (nextPos.lon - currentActivePos.lon) * Math.PI / 180;
+          const lat1 = currentActivePos.lat * Math.PI / 180;
+          const lat2 = nextPos.lat * Math.PI / 180;
+          const y = Math.sin(dLon) * Math.cos(lat2);
+          const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+          let head = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+          document.getElementById('val-head').innerHTML = `${head.toFixed(0)}<span class="ribbon-unit">°</span>`;
+        }
+
+        const look = calculateLookAngles(currentActivePos, simTime);
+        const visBanner = document.getElementById('vis-banner');
+
+        if (look) {
+          document.getElementById('val-el').innerHTML = `${look.elevation.toFixed(1)}<span class="ribbon-unit">°</span>`;
+          document.getElementById('pass-el').innerText = `${look.elevation.toFixed(1)}°`;
+          document.getElementById('pass-az').innerText = `${look.azimuth.toFixed(1)}°`;
+          document.getElementById('pass-range').innerText = `${Math.round(look.range)} km`;
+          document.getElementById('pass-doppler').innerText = `${look.dopplerKHz > 0 ? '+' : ''}${look.dopplerKHz.toFixed(2)} kHz`;
+
+          if (look.elevation > 0) {
+            visBanner.className = 'visibility-banner vis-in-range';
+            visBanner.innerHTML = `<i class="fa-solid fa-signal"></i> ${SATELLITE_CONFIG[activeSatKey].name.split(' ')[0]} 正在過境中！信號視野連線中 (AOS)`;
+          } else {
+            visBanner.className = 'visibility-banner vis-out-of-range';
+            visBanner.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> 目前在視界外 (Horizon Loss of Signal)`;
+          }
+        }
+      }
+
+      if (currentMapEngine === 'canvas') {
+        renderCanvasMap();
+      }
+
+      // 4. 折線更新頻率設定為 60 秒一次
+      const currentSec = Math.floor(now / 1000);
+      if (currentSec - lastTrackUpdateSec > 60 || satEntities.noaa21.cachedFuture.length === 0) {
+        updateAllGroundTracks(simTime);
+        lastTrackUpdateSec = currentSec;
+      }
+    }
+
+    function restartEngineTimer() {
+      if (tickerTimerId) clearInterval(tickerTimerId);
+      if (isPaused) return;
+
+      let intervalMs = 1000;
+      if (simSpeed >= 60) intervalMs = 200;
+      else if (simSpeed > 1) intervalMs = 500;
+
+      lastClockTick = Date.now();
+      tickerTimerId = setInterval(updateTick, intervalMs);
+    }
+
+    function setSpeed(speed, btn) {
+      const now = Date.now();
+      if (simSpeed === 1 && speed !== 1) timeOffsetMs = 0;
+      else if (speed === 1) timeOffsetMs = 0;
+
+      simSpeed = speed;
+      document.querySelectorAll('.sim-ctrl-btn').forEach(b => {
+        if (b.id && b.id.startsWith('btn-speed-')) b.classList.remove('active');
+      });
+      if (btn) btn.classList.add('active');
+
+      restartEngineTimer();
+      updateTick();
+    }
+
+    function togglePause(btn) {
+      isPaused = !isPaused;
+      if (isPaused) {
+        btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+        btn.classList.add('active');
+        if (tickerTimerId) clearInterval(tickerTimerId);
+      } else {
+        btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+        btn.classList.remove('active');
+        lastClockTick = Date.now();
+        restartEngineTimer();
+        updateTick();
+      }
+    }
+
+    function resetToNow() {
+      simSpeed = 1;
+      timeOffsetMs = 0;
+      isPaused = false;
+      simTime = new Date();
+
+      setSpeed(1, document.getElementById('btn-speed-1'));
+      document.getElementById('btn-pause').innerHTML = '<i class="fa-solid fa-pause"></i>';
+      document.getElementById('btn-pause').classList.remove('active');
+      
+      updateAllGroundTracks(simTime);
+      restartEngineTimer();
+      updateTick();
+    }
+
+    function openCoordModal() {
+      document.getElementById('input-station-name').value = observer.name;
+      document.getElementById('input-lat').value = Number(observer.lat).toFixed(4);
+      document.getElementById('input-lon').value = Number(observer.lon).toFixed(4);
+      document.getElementById('input-alt').value = (Number(observer.alt) * 1000).toFixed(0);
+      document.getElementById('coord-modal').style.display = 'flex';
+    }
+    function closeCoordModal() { document.getElementById('coord-modal').style.display = 'none'; }
+
+    function applyPreset(name, lat, lon, alt) {
+      document.getElementById('input-station-name').value = name;
+      document.getElementById('input-lat').value = lat;
+      document.getElementById('input-lon').value = lon;
+      document.getElementById('input-alt').value = alt;
+    }
+
+    function submitCustomCoords() {
+      const name = document.getElementById('input-station-name').value.trim() || "自訂地面站";
+      const lat = parseFloat(document.getElementById('input-lat').value);
+      const lon = parseFloat(document.getElementById('input-lon').value);
+      const alt = parseFloat(document.getElementById('input-alt').value) || 0;
+
+      if (isNaN(lat) || lat < -90 || lat > 90 || isNaN(lon) || lon < -180 || lon > 180) {
+        alert("請輸入正確範圍的經緯度座標！");
+        return;
+      }
+
+      setObserverLocation(lat, lon, alt, name);
+      closeCoordModal();
+      if (map) map.setView([lat, lon], Math.max(map.getZoom(), 4));
+    }
+
+    function useGeolocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            setObserverLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.altitude || 50, "GPS 定位點");
+            if (map) map.setView([pos.coords.latitude, pos.coords.longitude], 5);
+          },
+          err => { alert("無法取得定位: " + err.message); }
+        );
+      } else {
+        alert("瀏覽器不支援 Geolocation 定位。");
+      }
+    }
+
+    function openTleModal() {
+      const config = SATELLITE_CONFIG[activeSatKey];
+      const entity = satEntities[activeSatKey];
+
+      document.getElementById('tle-modal-title').innerText = `${config.name} TLE 軌道根數`;
+      document.getElementById('tle-modal-sat-target').innerText = config.name;
+      document.getElementById('tle-input').value = `${config.name}\n${entity.tleLine1}\n${entity.tleLine2}`;
+
+      checkActiveTleAge();
+      document.getElementById('tle-modal').style.display = 'flex';
+    }
+    function closeTleModal() { document.getElementById('tle-modal').style.display = 'none'; }
+
+    function applyCustomTle() {
+      const text = document.getElementById('tle-input').value.trim().split(/\r?\n/);
+      let l1 = "", l2 = "";
+      for (let line of text) {
+        line = line.trim();
+        if (line.startsWith('1 ')) l1 = line;
+        if (line.startsWith('2 ')) l2 = line;
+      }
+      if (l1 && l2) {
+        if (initSatrecFor(activeSatKey, l1, l2)) {
+          saveSatTle(activeSatKey, l1, l2);
+          updateAllGroundTracks(simTime);
+          checkActiveTleAge();
+          closeTleModal();
+          updateTick();
+          alert(`${SATELLITE_CONFIG[activeSatKey].name} TLE 成功更新並已儲存！`);
+        }
+      } else {
+        alert("格式錯誤：請確保包含以 '1 ' 與 '2 ' 開頭的兩行 TLE 數據。");
+      }
+    }
+
+    async function fetchLiveTle() {
+      const config = SATELLITE_CONFIG[activeSatKey];
+      try {
+        const res = await fetch(`https://celestrak.org/NORAD/elements/gp.php?CATNR=${config.noradId}&FORMAT=TLE`);
+        if (!res.ok) throw new Error("CelesTrak 回應異常");
+        const text = await res.text();
+        const lines = text.trim().split(/\r?\n/);
+        let l1 = "", l2 = "";
+        for (let line of lines) {
+          line = line.trim();
+          if (line.startsWith('1 ')) l1 = line;
+          if (line.startsWith('2 ')) l2 = line;
+        }
+        if (l1 && l2) {
+          document.getElementById('tle-input').value = `${config.name}\n${l1}\n${l2}`;
+          applyCustomTle();
+        } else {
+          throw new Error("未能解析出有效的兩行數據");
+        }
+      } catch (err) {
+        alert(`無法連線至 CelesTrak (可能受跨域 CORS 限制): ${err.message}\n您可前往 celestrak.org 搜尋 ${config.noradId} 複製兩行貼入。`);
+      }
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        if (tickerTimerId) clearInterval(tickerTimerId);
+      } else {
+        lastClockTick = Date.now();
+        restartEngineTimer();
+        updateTick();
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadSavedSettings();
+      setObserverLocation(observer.lat, observer.lon, observer.alt * 1000, observer.name);
+
+      Object.keys(SATELLITE_CONFIG).forEach(key => {
+        initSatrecFor(key, satEntities[key].tleLine1, satEntities[key].tleLine2);
+      });
+
+      initLeafletMap();
+      changeMapLayer(currentMapEngine);
+      switchActiveSatellite('noaa21');
+      updateSatDisplayModeUI();
+      updateAllGroundTracks(simTime);
+
+      restartEngineTimer();
+      updateTick();
+    });
+  </script>
+</body>
+</html>
